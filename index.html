@@ -22,21 +22,101 @@
     });
   </script>
   <style>
-    #hud { position: fixed; top: 10px; left: 10px; right: 10px; z-index: 10;
-           background: rgba(42,27,92,.82); color: #fff; border-radius: 12px;
-           padding: 10px 12px; font: 14px/1.5 system-ui, sans-serif; }
+    #hud {
+      position: fixed; top: 10px; left: 10px; right: 10px; z-index: 1000;
+      background: rgba(35, 20, 75, 0.90);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff; border-radius: 14px;
+      padding: 12px 14px; font: 14px/1.5 system-ui, -apple-system, sans-serif;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
     #hud b { color: #C9B8F0; }
+    .hud-header {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+    }
+    .hud-title {
+      font-size: 13px; color: #D5CAFA; display: flex; align-items: center; gap: 6px;
+    }
+    .hud-coords {
+      font-size: 15px; font-weight: 700; color: #7BFFB2; margin: 2px 0;
+      word-break: break-all;
+    }
+    .hud-sub {
+      font-size: 12px; color: #E0D7FA;
+    }
+    .btn-group {
+      display: flex; gap: 6px; flex-shrink: 0;
+    }
+    .btn-gps {
+      background: linear-gradient(135deg, #FF6B9D, #C83B7A);
+      color: #fff; border: none; border-radius: 8px;
+      padding: 8px 12px; font-size: 13px; font-weight: 600;
+      cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: transform 0.1s, opacity 0.2s;
+    }
+    .btn-gps:active {
+      transform: scale(0.96); opacity: 0.9;
+    }
+    .btn-copy {
+      background: rgba(255,255,255,0.18);
+      color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
+      padding: 8px 10px; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .btn-copy:active {
+      background: rgba(255,255,255,0.3);
+    }
+    .hud-distances {
+      margin-top: 8px; padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.15);
+      font-size: 13px; line-height: 1.4; color: #F0ECFC;
+    }
+    #toast {
+      margin-top: 8px; padding: 6px 10px;
+      background: rgba(20, 140, 70, 0.9);
+      border-radius: 6px; font-size: 12px; color: #FFFFFF;
+      text-align: center; display: none;
+      animation: fadeIn 0.2s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   </style>
 </head>
 <body style="margin: 0; overflow: hidden;">
-  <div id="hud">กำลังขอตำแหน่ง GPS… (อนุญาตกล้องและตำแหน่ง)</div>
+  <div id="hud">
+    <div class="hud-header">
+      <div>
+        <div class="hud-title">
+          <span id="gps-status-dot" style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#FFCE54;"></span>
+          <span id="gps-status-text">กำลังค้นหา GPS…</span>
+        </div>
+        <div class="hud-coords" id="hud-coords">รอรับพิกัด…</div>
+        <div class="hud-sub" id="hud-sub">ความแม่นยำ: …</div>
+      </div>
+      <div class="btn-group">
+        <button id="btn-check" class="btn-gps" type="button" onclick="checkGPS()">
+          <span>📍</span> เช็คพิกัด
+        </button>
+        <button id="btn-copy" class="btn-copy" type="button" onclick="copyCoords()" title="คัดลอกพิกัด">
+          📋
+        </button>
+      </div>
+    </div>
+    <div id="toast"></div>
+    <div class="hud-distances" id="hud-distances">กำลังคำนวณระยะห่าง…</div>
+  </div>
 
   <a-scene vr-mode-ui="enabled: false"
            arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false"
            renderer="antialias: true; alpha: true">
 
-    <!-- กล้องที่รู้ตำแหน่ง GPS ของผู้ใช้ · gpsMinDistance = ขยับเกินกี่เมตรจึงอัปเดตตำแหน่ง -->
-    <a-camera gps-new-camera="gpsMinDistance: 5"></a-camera>
+    <!-- กล้องที่รู้ตำแหน่ง GPS ของผู้ใช้ · gpsMinDistance: 0 เพื่อให้อัปเดตตำแหน่งแบบเรียลไทม์ตามมือถือ -->
+    <a-camera gps-new-camera="gpsMinDistance: 0"></a-camera>
 
     <!-- หน่วยของขนาดในโหมดนี้คือ "เมตรจริง" วัตถุที่อยู่ห่าง 30 เมตรจึงต้องใหญ่หลายเมตรถึงจะเห็นชัด
          วางจุดตัวอย่างรอบพิกัดอ้างอิง 7.808323, 99.941298 -->
@@ -72,11 +152,143 @@
     const ipadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
     const IS_MOBILE = mobileUA || ipadOS;
     const SIM = new URLSearchParams(location.search).has('sim') && !IS_MOBILE;
-    const hud = document.getElementById('hud');
+
+    const hudCoords = document.getElementById('hud-coords');
+    const hudSub = document.getElementById('hud-sub');
+    const hudDistances = document.getElementById('hud-distances');
+    const statusDot = document.getElementById('gps-status-dot');
+    const statusText = document.getElementById('gps-status-text');
+    const toast = document.getElementById('toast');
+    const btnCheck = document.getElementById('btn-check');
+
     const scene = document.querySelector('a-scene');
     const cam = document.querySelector('[gps-new-camera]');
     const places = [...document.querySelectorAll('[gps-new-entity-place]')];
-    let me = null, accuracy = null;
+    let me = null, accuracy = null, lastUpdate = null;
+    let toastTimeout = null;
+
+    // คำนวณระยะทางตามเส้นรอบวงโลก (Haversine Formula) ในหน่วยเมตร
+    function calcDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371e3;
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function showToast(msg, duration = 3000) {
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      toastTimeout = setTimeout(() => {
+        toast.style.display = 'none';
+      }, duration);
+    }
+
+    function renderHUD() {
+      if (!me) return;
+
+      const timeStr = lastUpdate ? `(${lastUpdate.toLocaleTimeString('th-TH')})` : '';
+      hudCoords.textContent = `${me.latitude.toFixed(6)}, ${me.longitude.toFixed(6)}`;
+
+      if (SIM) {
+        statusDot.style.background = '#38D9A9';
+        statusText.textContent = 'โหมดจำลอง (SIM)';
+        hudSub.innerHTML = `ความแม่นยำ: <b>โหมดจำลอง</b> ${timeStr}`;
+      } else {
+        statusDot.style.background = '#51CF66';
+        statusText.textContent = 'GPS เรียลไทม์';
+        const accText = accuracy ? `± ${Math.round(accuracy)} ม.` : '…';
+        hudSub.innerHTML = `ความแม่นยำ: <b>${accText}</b> ${timeStr}`;
+      }
+
+      // คำนวณระยะห่างไปยังแต่ละจุด
+      const rows = places.map(p => {
+        const comp = p.components['gps-new-entity-place'];
+        let d = comp ? comp.distance : undefined;
+
+        // หาก AR.js ยังไม่คำนวณระยะ ให้ใช้ Haversine formula เพื่อแสดงผลทันที
+        if (d === undefined || isNaN(d)) {
+          const lat = parseFloat(p.getAttribute('gps-new-entity-place').latitude);
+          const lon = parseFloat(p.getAttribute('gps-new-entity-place').longitude);
+          if (!isNaN(lat) && !isNaN(lon)) {
+            d = calcDistance(me.latitude, me.longitude, lat, lon);
+          }
+        }
+        return `${p.dataset.name}: <b>${d === undefined ? '…' : Math.round(d) + ' ม.'}</b>`;
+      }).join(' · ');
+
+      hudDistances.innerHTML = rows || 'ไม่มีจุดมาร์กเกอร์';
+    }
+
+    // ฟังก์ชันอัปเดตตำแหน่งเมื่อได้รับพิกัดใหม่
+    function updatePosition(coords) {
+      me = {
+        latitude: coords.latitude,
+        longitude: coords.longitude
+      };
+      if (coords.accuracy !== undefined) accuracy = coords.accuracy;
+      lastUpdate = new Date();
+      renderHUD();
+    }
+
+    // ฟังก์ชันสำหรับปุ่ม "เช็คพิกัด"
+    function checkGPS() {
+      if (SIM) {
+        showToast(`📍 พิกัดจำลอง: ${me ? me.latitude.toFixed(6) + ', ' + me.longitude.toFixed(6) : 'กำลังโหลด…'}`);
+        return;
+      }
+      if (!navigator.geolocation) {
+        alert('เบราว์เซอร์ของคุณไม่รองรับ Geolocation');
+        return;
+      }
+
+      const originalBtnText = btnCheck.innerHTML;
+      btnCheck.innerHTML = '<span>⏳</span> กำลังเช็ค…';
+      btnCheck.disabled = true;
+
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          btnCheck.innerHTML = originalBtnText;
+          btnCheck.disabled = false;
+          updatePosition(pos.coords);
+          const coordText = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
+          showToast(`📍 พิกัดล่าสุด: ${coordText} (±${Math.round(pos.coords.accuracy)} ม.)`, 4000);
+        },
+        err => {
+          btnCheck.innerHTML = originalBtnText;
+          btnCheck.disabled = false;
+          let msg = 'ไม่สามารถอ่านพิกัดได้';
+          if (err.code === 1) msg = 'ถูกปฏิเสธสิทธิ์ GPS';
+          else if (err.code === 2) msg = 'ไม่พบสัญญาณ GPS';
+          else if (err.code === 3) msg = 'หมดเวลาค้นหาพิกัด';
+          showToast(`⚠️ ${msg}: ${err.message}`, 4000);
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      );
+    }
+
+    // ฟังก์ชันสำหรับคัดลอกพิกัดลงคลิปบอร์ด
+    function copyCoords() {
+      if (!me) {
+        showToast('⚠️ ยังไม่มีพิกัดให้คัดลอก');
+        return;
+      }
+      const coordStr = `${me.latitude.toFixed(6)}, ${me.longitude.toFixed(6)}`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(coordStr).then(() => {
+          showToast(`📋 คัดลอกพิกัดแล้ว: ${coordStr}`);
+        }).catch(() => {
+          prompt('คัดลอกพิกัดของคุณ:', coordStr);
+        });
+      } else {
+        prompt('คัดลอกพิกัดของคุณ:', coordStr);
+      }
+    }
 
     // ตรวจสอบ In-App Browser (เช่น LINE) เพื่อบังคับเปิดในเบราว์เซอร์หลัก (Chrome/Safari) ป้องกันโดนบล็อกกล้อง
     const isLine = /Line/i.test(navigator.userAgent);
@@ -87,7 +299,8 @@
 
     // แจ้งเตือนเมื่อเปิดผ่าน HTTP นอก localhost (เบราว์เซอร์มือถือจะบล็อกกล้องและ GPS ทันทีหากไม่ใช่ HTTPS)
     if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-      hud.innerHTML = '<span style="color:#ff6b6b">⚠️ เบราว์เซอร์มือถือบล็อกกล้อง/GPS เมื่อเปิดผ่าน HTTP!</span><br>กรุณาเปิดผ่าน HTTPS (GitHub Pages) หรือดูวิธีในคำแนะนำ';
+      hudCoords.innerHTML = '<span style="color:#ff6b6b">⚠️ ต้องเปิดผ่าน HTTPS!</span>';
+      hudSub.innerHTML = 'เบราว์เซอร์บล็อกกล้อง/GPS เมื่อเปิดผ่าน HTTP';
     }
 
     // สำหรับ iPhone (iOS): แตะหน้าจอ 1 ครั้งเพื่อขอสิทธิ์เซนเซอร์ทิศทาง (DeviceOrientation)
@@ -100,38 +313,50 @@
     scene.addEventListener('loaded', () => {
       if (SIM) {
         const a = places[0].getAttribute('gps-new-entity-place');
-        setTimeout(() => cam.setAttribute('gps-new-camera', {
-          simulateLatitude: a.latitude - 0.0003, simulateLongitude: a.longitude + 0.000001
-        }), 500);
+        setTimeout(() => {
+          const simLat = parseFloat(a.latitude) - 0.0003;
+          const simLon = parseFloat(a.longitude) + 0.000001;
+          me = { latitude: simLat, longitude: simLon };
+          accuracy = 5;
+          lastUpdate = new Date();
+          cam.setAttribute('gps-new-camera', {
+            simulateLatitude: simLat, simulateLongitude: simLon
+          });
+          renderHUD();
+        }, 500);
       }
     });
-    cam.addEventListener('gps-camera-update-position', e => { me = e.detail.position; });
 
-    // อ่านความแม่นยำของ GPS (± เมตร) เพื่อจดลงใบงาน พร้อมจัดการแจ้งเตือนหากถูกบล็อกสิทธิ์
+    // รับตำแหน่งจากกล้อง AR.js เมื่อกล้องขยับ
+    cam.addEventListener('gps-camera-update-position', e => {
+      updatePosition(e.detail.position);
+    });
+
+    // อ่านตำแหน่งและพิกัด GPS แบบ Real-time ต่อเนื่องตามการเคลื่อนที่ของมือถือ
     if (!SIM && navigator.geolocation) {
       navigator.geolocation.watchPosition(
-        p => { accuracy = p.coords.accuracy; },
+        pos => {
+          updatePosition(pos.coords);
+        },
         err => {
           if (err.code === 1) {
-            hud.innerHTML = '<span style="color:#ff6b6b">⚠️ ถูกปฏิเสธสิทธิ์ GPS:</span> กรุณากดอนุญาตสิทธิ์ Location ในเบราว์เซอร์';
+            statusDot.style.background = '#FF6B6B';
+            statusText.textContent = 'ถูกปฏิเสธสิทธิ์ GPS';
+            hudCoords.innerHTML = '<span style="color:#ff8787">ไม่ได้รับอนุญาตให้ใช้ GPS</span>';
+            hudSub.innerHTML = 'กรุณาเปิดสิทธิ์ Location ในเบราว์เซอร์';
           } else if (err.code === 2) {
-            hud.innerHTML = '<span style="color:#ff6b6b">⚠️ ไม่พบสัญญาณ GPS:</span> กรุณาเปิด Location ในมือถือและออกไปที่โล่ง';
+            statusDot.style.background = '#FF6B6B';
+            statusText.textContent = 'ไม่พบสัญญาณ GPS';
+            hudCoords.innerHTML = '<span style="color:#ff8787">ค้นหาสัญญาณ GPS ไม่พบ</span>';
+            hudSub.innerHTML = 'กรุณาเปิดตำแหน่งในมือถือและออกไปที่โล่ง';
           }
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 }
       );
     }
 
-    setInterval(() => {
-      if (!me) return;
-      const acc = SIM ? 'โหมดจำลอง' : (accuracy ? '± ' + Math.round(accuracy) + ' ม.' : '…');
-      const rows = places.map(p => {
-        const comp = p.components['gps-new-entity-place'];
-        const d = comp ? comp.distance : undefined;
-        return `${p.dataset.name}: <b>${d === undefined ? '…' : Math.round(d) + ' ม.'}</b>`;
-      }).join(' · ');
-      hud.innerHTML = `ฉันอยู่ที่ ${me.latitude.toFixed(6)}, ${me.longitude.toFixed(6)} · ความแม่นยำ <b>${acc}</b><br>${rows}`;
-    }, 1000);
+    // อัปเดตการแสดงผล HUD ทุก 1 วินาที เพื่อรีเฟรชระยะทางแบบเรียลไทม์
+    setInterval(renderHUD, 1000);
   </script>
 </body>
 </html>
