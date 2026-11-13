@@ -24,17 +24,18 @@
   <style>
     #hud {
       position: fixed; top: 10px; left: 10px; right: 10px; z-index: 1000;
-      background: rgba(35, 20, 75, 0.90);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      background: rgba(30, 16, 68, 0.92);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
       color: #fff; border-radius: 14px;
       padding: 12px 14px; font: 14px/1.5 system-ui, -apple-system, sans-serif;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.45);
       border: 1px solid rgba(255,255,255,0.18);
+      max-height: 90vh; overflow-y: auto;
     }
     #hud b { color: #C9B8F0; }
     .hud-header {
-      display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;
     }
     .hud-title {
       font-size: 13px; color: #D5CAFA; display: flex; align-items: center; gap: 6px;
@@ -47,36 +48,60 @@
       font-size: 12px; color: #E0D7FA;
     }
     .btn-group {
-      display: flex; gap: 6px; flex-shrink: 0;
+      display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    }
+    button {
+      font-family: inherit;
     }
     .btn-gps {
       background: linear-gradient(135deg, #FF6B9D, #C83B7A);
       color: #fff; border: none; border-radius: 8px;
-      padding: 8px 12px; font-size: 13px; font-weight: 600;
+      padding: 7px 11px; font-size: 12px; font-weight: 600;
       cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
       display: inline-flex; align-items: center; gap: 4px;
       transition: transform 0.1s, opacity 0.2s;
     }
-    .btn-gps:active {
-      transform: scale(0.96); opacity: 0.9;
+    .btn-set {
+      background: linear-gradient(135deg, #4E65FF, #92EFFD);
+      color: #1A1145; border: none; border-radius: 8px;
+      padding: 7px 11px; font-size: 12px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: transform 0.1s, opacity 0.2s;
     }
-    .btn-copy {
+    .btn-gear, .btn-copy {
       background: rgba(255,255,255,0.18);
       color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
-      padding: 8px 10px; font-size: 13px; font-weight: 500;
+      padding: 7px 9px; font-size: 12px; font-weight: 500;
       cursor: pointer; transition: background 0.2s;
     }
-    .btn-copy:active {
-      background: rgba(255,255,255,0.3);
+    button:active {
+      transform: scale(0.96); opacity: 0.9;
     }
     .hud-distances {
       margin-top: 8px; padding-top: 8px;
       border-top: 1px solid rgba(255,255,255,0.15);
       font-size: 13px; line-height: 1.4; color: #F0ECFC;
     }
+    #tools-panel {
+      display: none; margin-top: 10px; padding: 10px;
+      background: rgba(0,0,0,0.35); border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12); font-size: 12px;
+    }
+    .panel-section-title {
+      font-weight: 600; color: #C9B8F0; margin-bottom: 6px;
+    }
+    .panel-btns {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;
+    }
+    .btn-sm {
+      background: rgba(255,255,255,0.16); color: #fff;
+      border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
+      padding: 5px 8px; font-size: 11px; cursor: pointer;
+    }
     #toast {
       margin-top: 8px; padding: 6px 10px;
-      background: rgba(20, 140, 70, 0.9);
+      background: rgba(20, 140, 70, 0.95);
       border-radius: 6px; font-size: 12px; color: #FFFFFF;
       text-align: center; display: none;
       animation: fadeIn 0.2s ease-in-out;
@@ -102,11 +127,33 @@
         <button id="btn-check" class="btn-gps" type="button" onclick="checkGPS()">
           <span>📍</span> เช็คพิกัด
         </button>
-        <button id="btn-copy" class="btn-copy" type="button" onclick="copyCoords()" title="คัดลอกพิกัด">
+        <button id="btn-set-around" class="btn-set" type="button" onclick="setPointsAroundMe()" title="สร้างเซ็ตพิกัดจุด A, B, C รอบตำแหน่งปัจจุบัน">
+          <span>🎯</span> เซ็ตจุดรอบตัว
+        </button>
+        <button id="btn-toggle-tools" class="btn-gear" type="button" onclick="toggleToolsPanel()" title="ตั้งค่า/ปักหมุดจุด">
+          ⚙️
+        </button>
+        <button id="btn-copy" class="btn-copy" type="button" onclick="copyCoords()" title="คัดลอกพิกัดปัจจุบัน">
           📋
         </button>
       </div>
     </div>
+
+    <!-- แผงเครื่องมือตั้งค่าพิกัดเพิ่มเติม -->
+    <div id="tools-panel">
+      <div class="panel-section-title">📌 ปักหมุดเฉพาะจุด ณ ตำแหน่งที่ยืนอยู่:</div>
+      <div class="panel-btns">
+        <button class="btn-sm" type="button" onclick="pinSinglePoint('Abyme')">ปักหมุด จุด A</button>
+        <button class="btn-sm" type="button" onclick="pinSinglePoint('จุด B')">ปักหมุด จุด B</button>
+        <button class="btn-sm" type="button" onclick="pinSinglePoint('จุด C')">ปักหมุด จุด C</button>
+      </div>
+      <div class="panel-section-title">⚡ จัดการพิกัด:</div>
+      <div class="panel-btns">
+        <button class="btn-sm" type="button" onclick="copyConfigCode()">📄 คัดลอกโค้ดไปใส่ index.html</button>
+        <button class="btn-sm" type="button" onclick="resetToDefaultPlaces()" style="color:#FFA8A8;">🔄 คืนค่าเริ่มต้น</button>
+      </div>
+    </div>
+
     <div id="toast"></div>
     <div class="hud-distances" id="hud-distances">กำลังคำนวณระยะห่าง…</div>
   </div>
@@ -160,10 +207,22 @@
     const statusText = document.getElementById('gps-status-text');
     const toast = document.getElementById('toast');
     const btnCheck = document.getElementById('btn-check');
+    const toolsPanel = document.getElementById('tools-panel');
 
     const scene = document.querySelector('a-scene');
     const cam = document.querySelector('[gps-new-camera]');
     const places = [...document.querySelectorAll('[gps-new-entity-place]')];
+
+    // บันทึกพิกัดตั้งต้นจาก HTML
+    const defaultPlaces = {};
+    places.forEach(p => {
+      const attr = p.getAttribute('gps-new-entity-place');
+      defaultPlaces[p.dataset.name] = {
+        lat: parseFloat(attr.latitude),
+        lon: parseFloat(attr.longitude)
+      };
+    });
+
     let me = null, accuracy = null, lastUpdate = null;
     let toastTimeout = null;
 
@@ -290,6 +349,107 @@
       }
     }
 
+    // สลับการเปิด/ปิดแผงเครื่องมือ
+    function toggleToolsPanel() {
+      const isVisible = toolsPanel.style.display === 'block';
+      toolsPanel.style.display = isVisible ? 'none' : 'block';
+    }
+
+    // นำพิกัดใหม่ไปตั้งค่าใน A-Frame entities และบันทึกลง localStorage
+    function applyAndSavePlaces(placesData) {
+      places.forEach(p => {
+        const name = p.dataset.name;
+        if (placesData[name]) {
+          const { lat, lon } = placesData[name];
+          p.setAttribute('gps-new-entity-place', `latitude: ${lat}; longitude: ${lon}`);
+        }
+      });
+      try {
+        localStorage.setItem('ar_saved_places', JSON.stringify(placesData));
+      } catch (e) {}
+      renderHUD();
+    }
+
+    // 🎯 สร้างเซ็ตพิกัดจุด A, B, C อัตโนมัติรอบตำแหน่งปัจจุบันของผู้ใช้ (~25-30 เมตร)
+    function setPointsAroundMe() {
+      if (!me) {
+        showToast('⚠️ กรุณารอพิกัด GPS หรือกด "เช็คพิกัด" ก่อน');
+        return;
+      }
+      // ออฟเซ็ตประมาณ ~27 เมตร (0.00025 องศา)
+      const offset = 0.00025;
+      const newPlaces = {
+        'Abyme': { lat: me.latitude + offset, lon: me.longitude },          // ทิศเหนือ
+        'จุด B': { lat: me.latitude, lon: me.longitude + offset },          // ทิศตะวันออก
+        'จุด C': { lat: me.latitude - offset, lon: me.longitude }           // ทิศใต้
+      };
+      applyAndSavePlaces(newPlaces);
+      showToast('🎯 เซ็ตพิกัดจุด A, B, C รอบตัวสำเร็จ (~25 ม.)', 4000);
+    }
+
+    // 📌 ปักหมุดเฉพาะจุด (A, B หรือ C) ณ ตำแหน่งที่ผู้ใช้ยืนอยู่ตอนนี้
+    function pinSinglePoint(pointName) {
+      if (!me) {
+        showToast('⚠️ กรุณารอพิกัด GPS ก่อน');
+        return;
+      }
+      let saved = {};
+      try {
+        saved = JSON.parse(localStorage.getItem('ar_saved_places')) || {};
+      } catch(e) {}
+
+      // ถ้ายังไม่มีพิกัดจุดอื่น ให้ดึงจากปัจจุบัน
+      places.forEach(p => {
+        const name = p.dataset.name;
+        if (!saved[name]) {
+          const attr = p.getAttribute('gps-new-entity-place');
+          saved[name] = { lat: parseFloat(attr.latitude), lon: parseFloat(attr.longitude) };
+        }
+      });
+
+      saved[pointName] = { lat: me.latitude, lon: me.longitude };
+      applyAndSavePlaces(saved);
+      showToast(`📌 ปักหมุด ${pointName} ที่พิกัดปัจจุบันเรียบร้อย!`, 3000);
+    }
+
+    // คัดลอกโค้ดตำแหน่งที่ปรับแล้วไปใส่ใน index.html
+    function copyConfigCode() {
+      let code = '';
+      places.forEach(p => {
+        const name = p.dataset.name;
+        const attr = p.getAttribute('gps-new-entity-place');
+        code += `<!-- ${name} -->\ngps-new-entity-place="latitude: ${attr.latitude}; longitude: ${attr.longitude}"\n\n`;
+      });
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => {
+          showToast('📄 คัดลอกโค้ดพิกัดแล้ว นำไปวางในไฟล์ได้เลย!', 4000);
+        }).catch(() => {
+          prompt('คัดลอกโค้ดพิกัดของคุณ:', code);
+        });
+      } else {
+        prompt('คัดลอกโค้ดพิกัดของคุณ:', code);
+      }
+    }
+
+    // คืนค่าพิกัดเริ่มต้นจากเทมเพลต
+    function resetToDefaultPlaces() {
+      try {
+        localStorage.removeItem('ar_saved_places');
+      } catch (e) {}
+      applyAndSavePlaces(defaultPlaces);
+      showToast('🔄 คืนค่าพิกัดตั้งต้นเรียบร้อย');
+    }
+
+    // โหลดพิกัดที่เคยเซ็ตไว้จาก localStorage (ถ้ามี)
+    function loadSavedPlaces() {
+      try {
+        const saved = JSON.parse(localStorage.getItem('ar_saved_places'));
+        if (saved) {
+          applyAndSavePlaces(saved);
+        }
+      } catch (e) {}
+    }
+
     // ตรวจสอบ In-App Browser (เช่น LINE) เพื่อบังคับเปิดในเบราว์เซอร์หลัก (Chrome/Safari) ป้องกันโดนบล็อกกล้อง
     const isLine = /Line/i.test(navigator.userAgent);
     if (isLine && !location.search.includes('openExternalBrowser=1')) {
@@ -311,6 +471,7 @@
     }, { once: true });
 
     scene.addEventListener('loaded', () => {
+      loadSavedPlaces();
       if (SIM) {
         const a = places[0].getAttribute('gps-new-entity-place');
         setTimeout(() => {
