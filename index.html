@@ -68,7 +68,10 @@
 
   <script>
     // โหมดจำลอง: เปิดลิงก์แล้วต่อท้ายด้วย ?sim จะ "ยืน" ห่างจุด A ไปทางใต้ประมาณ 33 เมตร (ใช้ในห้องหรือบนคอมพิวเตอร์)
-    const SIM = new URLSearchParams(location.search).has('sim');
+    const mobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const ipadOS = navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1;
+    const IS_MOBILE = mobileUA || ipadOS;
+    const SIM = new URLSearchParams(location.search).has('sim') && !IS_MOBILE;
     const hud = document.getElementById('hud');
     const scene = document.querySelector('a-scene');
     const cam = document.querySelector('[gps-new-camera]');
