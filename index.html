@@ -4,8 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AR ตามพิกัด · 0214381 Lab 3</title>
-  <!-- ห้ามแก้ 2 บรรทัดนี้: A-Frame 1.6.0 และ AR.js 3.4.8 (ชุดเดียวกับ Lab 1) -->
+  <!-- A-Frame 1.6.0 และ AR.js 3.4.8 (ชุดเดียวกับ Lab 1) -->
   <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.8/three.js/build/ar-threex-location-only.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@ar-js-org/ar.js@3.4.8/aframe/build/aframe-ar.js"></script>
   <script>
     // ให้วัตถุหันหน้าเข้าหาผู้ใช้เสมอ (อ่านป้ายได้จากทุกทิศ)
@@ -38,13 +39,13 @@
     <a-camera gps-new-camera="gpsMinDistance: 5"></a-camera>
 
     <!-- หน่วยของขนาดในโหมดนี้คือ "เมตรจริง" วัตถุที่อยู่ห่าง 30 เมตรจึงต้องใหญ่หลายเมตรถึงจะเห็นชัด
-         วางจุดตัวอย่างรอบพิกัดอ้างอิง 7.808447991102023, 99.94129692190079 -->
+         วางจุดตัวอย่างรอบพิกัดอ้างอิง 7.808323, 99.941298 -->
 
     <!-- ① แก้ได้: จุด A · ใส่ latitude และ longitude ของสถานที่จริงที่วัดมา และเปลี่ยน data-name -->
-    <a-entity data-name="จุด A" gps-new-entity-place="latitude: 7.808747991102023; longitude: 99.94129692190079">
-      <a-box color="#5A3EBD" scale="4 4 4" position="0 2 0"
-             animation="property: rotation; to: 0 360 0; loop: true; dur: 8000; easing: linear"></a-box>
-      <a-text face-me value="POINT A" align="center" color="#FFFFFF" width="40" position="0 6 0"></a-text>
+    <a-entity data-name="Abyme" gps-new-entity-place="latitude: 7.808323; longitude: 99.941298">
+      <a-image src="./assets/xx.png" width="5" height="5" position="0 4 0"
+               face-me material="transparent: true; side: double"></a-image>
+      <a-text face-me value="POINT A" align="center" color="#FFFFFF" width="20" position="0 8 0"></a-text>
     </a-entity>
 
     <!-- ② แก้ได้: จุด B · ลองเปลี่ยนสี ขนาด หรือเปลี่ยน a-sphere เป็น a-cylinder -->
@@ -74,6 +75,25 @@
     const places = [...document.querySelectorAll('[gps-new-entity-place]')];
     let me = null, accuracy = null;
 
+    // ตรวจสอบ In-App Browser (เช่น LINE) เพื่อบังคับเปิดในเบราว์เซอร์หลัก (Chrome/Safari) ป้องกันโดนบล็อกกล้อง
+    const isLine = /Line/i.test(navigator.userAgent);
+    if (isLine && !location.search.includes('openExternalBrowser=1')) {
+      const sep = location.href.includes('?') ? '&' : '?';
+      location.href = location.href + sep + 'openExternalBrowser=1';
+    }
+
+    // แจ้งเตือนเมื่อเปิดผ่าน HTTP นอก localhost (เบราว์เซอร์มือถือจะบล็อกกล้องและ GPS ทันทีหากไม่ใช่ HTTPS)
+    if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+      hud.innerHTML = '<span style="color:#ff6b6b">⚠️ เบราว์เซอร์มือถือบล็อกกล้อง/GPS เมื่อเปิดผ่าน HTTP!</span><br>กรุณาเปิดผ่าน HTTPS (GitHub Pages) หรือดูวิธีในคำแนะนำ';
+    }
+
+    // สำหรับ iPhone (iOS): แตะหน้าจอ 1 ครั้งเพื่อขอสิทธิ์เซนเซอร์ทิศทาง (DeviceOrientation)
+    window.addEventListener('click', () => {
+      if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission().catch(() => {});
+      }
+    }, { once: true });
+
     scene.addEventListener('loaded', () => {
       if (SIM) {
         const a = places[0].getAttribute('gps-new-entity-place');
@@ -84,16 +104,27 @@
     });
     cam.addEventListener('gps-camera-update-position', e => { me = e.detail.position; });
 
-    // อ่านความแม่นยำของ GPS (± เมตร) เพื่อจดลงใบงาน
+    // อ่านความแม่นยำของ GPS (± เมตร) เพื่อจดลงใบงาน พร้อมจัดการแจ้งเตือนหากถูกบล็อกสิทธิ์
     if (!SIM && navigator.geolocation) {
-      navigator.geolocation.watchPosition(p => { accuracy = p.coords.accuracy; }, () => {}, { enableHighAccuracy: true });
+      navigator.geolocation.watchPosition(
+        p => { accuracy = p.coords.accuracy; },
+        err => {
+          if (err.code === 1) {
+            hud.innerHTML = '<span style="color:#ff6b6b">⚠️ ถูกปฏิเสธสิทธิ์ GPS:</span> กรุณากดอนุญาตสิทธิ์ Location ในเบราว์เซอร์';
+          } else if (err.code === 2) {
+            hud.innerHTML = '<span style="color:#ff6b6b">⚠️ ไม่พบสัญญาณ GPS:</span> กรุณาเปิด Location ในมือถือและออกไปที่โล่ง';
+          }
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 }
+      );
     }
 
     setInterval(() => {
       if (!me) return;
       const acc = SIM ? 'โหมดจำลอง' : (accuracy ? '± ' + Math.round(accuracy) + ' ม.' : '…');
       const rows = places.map(p => {
-        const d = p.components['gps-new-entity-place'].distance;
+        const comp = p.components['gps-new-entity-place'];
+        const d = comp ? comp.distance : undefined;
         return `${p.dataset.name}: <b>${d === undefined ? '…' : Math.round(d) + ' ม.'}</b>`;
       }).join(' · ');
       hud.innerHTML = `ฉันอยู่ที่ ${me.latitude.toFixed(6)}, ${me.longitude.toFixed(6)} · ความแม่นยำ <b>${acc}</b><br>${rows}`;
